@@ -2,6 +2,8 @@
 -- runghc proof.hs
 --
 -- The input file has to be called sound.wav in the current dir.
+--
+-- Haskell proof-of-concept of stages 1/2/3 (see ALGORITHM).
 
 module Main where
 

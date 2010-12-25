@@ -1,0 +1,68 @@
+
+Musings of David Anderson, December 2010:
+
+
+...decoding has to happen in multiple stages, layered one upon the other,
+each layer reconstructing a little more information from the raw
+sound. You can see it as a pipeline, with raw sound coming in at one
+end, and words out the other. However, for the intelligence portions
+of the system, we'll probably have to rewind streams, so it's not a
+perfect analogy.
+
+I'm going to assume that the sound you get is fairly clear, that is
+the tone is clearly audible above the background noise.
+
+[Stage 1] is to detect tones in the sound stream. This stage receives
+digitized sound from the OS, probably at 11, 22 or 44KHz. From this,
+you should look at 10-50ms chunks, and compute the average amplitude
+of the sound over that time. Low amplitude chunks are probably
+silence, high amplitude chunks are probably a tone.
+
+How high/low depends on how clean your sound is. There are a couple of
+ways you could do this, the simplest being to do this measurement over
+several seconds, then take the min and max amplitude chunks as a
+reference, and normalize all the chunks according to that
+reference. Anything below 0.5 is silence, anything above is a tone.
+
+[Stage 2] is to measure tone and silence lengths. You receive a bit
+stream, where each bit is the state (tone/no tone) of one 10-50ms
+chunk. Count the runs of 0s and 1s, and that gives you tone/silence
+length. As insurance against noise, you should apply debouncing: if
+your state is currently "tone", you should wait for 3 consecutive
+zeros before flipping to "no tone", and vice versa. From this, you get
+a sequence of integers measuring "event" durations: 450ms tone, 500ms
+silence, 900ms tone, 200ms silence, ...
+
+[Stage 3] is trying to determine the rhythm of the sentence. You've told
+me that fast speakers have excellent rhythm, so this should be
+relatively easy. Going on silence length exclusively is probably the
+best, as everything else keys off that as I recall. Find the median
+silence length. The median and not the average, because inter-letter,
+inter-word and inter-sentence pauses will screw with the average,
+whereas the median has a good chance of being the inter-tone silence
+length.
+
+Once you have the inter-tone silence length, you can mechanically
+compute the inter-letter, inter-word and inter-sentence silence
+lengths for this speaker. You can also check your deductions against
+the silence stream you have. Lengths within 20-40% of what you
+predicted should be accepted, to allow for small deviations. Likewise
+for the tones.
+
+At this point, you have enough information to output a token stream
+that describes what kinds of tones and silences you're hearing: "Short
+Silence Long Silence Long EndOfLetter Short Silence Short EndOfWord
+Short Silence Long EndOfSentence"
+
+[Stage 4] is to implement a regular old parser, just as if you were
+parsing text, only the tokens are symbols for kinds of sounds,
+letters. If you read "Short Silence Long EndOfSentence", that's "A."
+All EndOfLetters collapse into nothing, but they allow your parser to
+perceive letter boundaries. EndOfWord collapses into a
+space. EndOfSentence ends the decoding process.
+
+Each time you detect the end of a sentence, you should probably reset
+all the estimates you came up with in each stage and start over at
+that point, as it's likely that it'll be someone else talking, with a
+different distinctive "accent", and your decoder needs to shed its
+preconceptions of what the speaker is supposed to sound like.
