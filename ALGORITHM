@@ -66,3 +66,32 @@ all the estimates you came up with in each stage and start over at
 that point, as it's likely that it'll be someone else talking, with a
 different distinctive "accent", and your decoder needs to shed its
 preconceptions of what the speaker is supposed to sound like.
+
+----------------
+
+Stage 1 elaboration by Mike Sussman:
+
+So the way this is normally done is with a "root mean square" (RMS)...it's
+fast and decent for getting a rough idea of levels, but isn't the most
+robust statistic in the world - single large values can slightly skew the
+statistic, unlike, say, finding the median or fitting to a gaussian.
+
+The basic idea is:
+
+1) Find the mean (average) of all values...unless you have some DC bias,
+though, that's usually zero.
+
+2) Square the mean.
+
+3) Now, square all your individual values and find the mean of that.
+
+4) Take the number you got in step 3 (the mean of squared values), and
+subtract the number you got in step 2 (the square of mean values).
+
+5) Take the square root of the difference from step 4.
+
+The basic equation here is:
+
+rms = sqrt(<x^2> - <x>^2)
+
+...where < > is the mean operator.
