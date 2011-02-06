@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"rand"
 )
 
 
@@ -56,11 +57,7 @@ func quantizer(amplitudes chan int, quants chan bool) {
 		}
 		middle := (max - min) / 2
 		for i := 0; i < 100; i++ {
-			if group[i] >= middle { 
-				quants <- true 
-			} else { 
-				quants <- false
-			}
+			quants <- (group[i] >= middle)
 		}
 	}
 }
@@ -83,6 +80,19 @@ func get_quantize_pipe(audiochunks chan []int) chan bool {
 // ------ Put all the pipes together. --------------
 
 func main () {
-	fmt.Printf("Hello, world\n")
+	chunks := make(chan []int)
+	quants := get_quantize_pipe(chunks)
+
+	// Push a crapload of random data into the pipeline
+	for i :=0 ; i < 5000; i++ {
+		var chunk [10]int
+		for j := 0; j < 10; j++ { chunk[j] = rand.Int() }
+		chunks <- chunk
+	}
+
+	// Pull quantized booleans from the pipeline's output
+	for {
+		fmt.Printf("%d ", <-quants)
+	}
 }
 
