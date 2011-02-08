@@ -85,7 +85,7 @@ func main () {
 
 	// Push a crapload of random data into the pipeline
 	for i :=0 ; i < 5000; i++ {
-		var chunk [10]int
+		chunk := make([]int, 10)
 		for j := 0; j < 10; j++ { chunk[j] = rand.Int() }
 		chunks <- chunk
 	}
