@@ -84,11 +84,13 @@ func main () {
 	quants := get_quantize_pipe(chunks)
 
 	// Push a crapload of random data into the pipeline
-	for i :=0 ; i < 5000; i++ {
-		chunk := make([]int, 10)
-		for j := 0; j < 10; j++ { chunk[j] = rand.Int() }
-		chunks <- chunk
-	}
+	go func() {
+		for i :=0 ; i < 5000; i++ {
+			chunk := make([]int, 10)
+			for j := 0; j < 10; j++ { chunk[j] = rand.Int() }
+			chunks <- chunk
+		}
+	}()
 
 	// Pull quantized booleans from the pipeline's output
 	for {
