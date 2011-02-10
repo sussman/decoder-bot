@@ -1,5 +1,9 @@
-/*  Go program to decode an audio stream of morse code into a stream of ascii.
+/*  
+  Go program to decode an audio stream of Morse code into a stream of ASCII.
 
+  See the ALGORITHM file for a description of what's going on, and
+  'proof.hs' as the original proof-of-concept implementation of this
+  algorithm in Haskell.
 */
 
 package main
@@ -8,6 +12,20 @@ import (
 	"fmt"
 	"math"
 	"rand"
+	"sort"
+)
+
+
+type token int
+
+const (
+	dit = iota
+	dah = iota
+	endLetter = iota
+	endWord = iota
+	pause = iota
+	noOp = iota
+	cwError = iota
 )
 
 
@@ -91,6 +109,8 @@ func getRlePipe(quants chan bool) chan int {
 	go func() {
 		currentState := false
 		tally := 0
+
+		// TODO(sussman): need to "debounce" this stream
 		for quant := range quants {
 			if quant == currentState { 
 				tally += 1 
@@ -106,12 +126,100 @@ func getRlePipe(quants chan bool) chan int {
 }
 
 
+// ------- Stage 3: Figure out length of morse 'unit' & output logic tokens 
+// 
+
+// Take a list of on/off duration events, sort them, return the 25th
+// percentile value as the "1 unit" duration within the time window.
+//
+// This magical 25% number derives from the observation that 1-unit
+// silences are the most common symbol in a normal Morse phrase, so
+// they should compose the majority of the bottom of the sorted pile
+// of durations. In theory we could simply pick the smallest, but by
+// going with the 25th percentile, the hope is to avoid picking the
+// ridiculously small sample that results from a quantization error.
+func calculateUnitDuration(group sort.IntArray) int {
+	group.Sort()
+	// fmt.Printf("(%d) ", group)
+	return group[(len(group) / 4)]
+}
+
+
+// Take a normalized duration value, 'clamp' it to the magic numbers
+// 1, 3, 7 (which are the faundational time durations in Morse code),
+// and return a sensible semantic token.
+func clamp(x float32, silence bool) token {
+	if (silence) {
+		switch {
+		case x > 8:
+			return pause
+		case x > 5:
+			return endWord
+		case x > 2:
+			return endLetter
+		default:
+			return noOp
+		}
+	} else {
+		switch {
+		case x > 8:
+			return cwError
+		case x > 5:
+			return cwError
+		case x > 2:
+			return dah
+		default:
+			return dit
+		}
+	}	
+	return cwError
+}
+
+
+func getTokenPipe(durations chan int) chan token {
+	tokens := make(chan token)
+	seen := 0
+	go func() {
+		// As a contextual window, look at sets of 20 on/off
+		// duration events when calculating the unitDuration.
+		//
+		// TODO(sussman): make this windowsize a constant we
+		// can fiddle.
+		group := make([]int, 20)
+		for duration := range durations {
+			group[seen] = duration
+			seen += 1
+			if seen == 20 {
+				seen = 0
+
+				// figure out the length of a 'dit' (1 unit)
+				unitDuration := calculateUnitDuration(group[:])
+
+				// normalize & clamp each duration by this
+				silence := false
+				for i := range group {
+					norm := float32(group[i] / unitDuration)
+					tokens <- clamp(norm, silence)
+					silence = !silence
+				}
+			}
+		}
+		close(durations)
+	}()
+	return tokens
+}
+
+
+
 
 // ------ Put all the pipes together. --------------
 
 func main () {
-	chunks := make(chan []int)  // main input pipe
-	output := getRlePipe(getQuantizePipe(chunks))  // main output pipe
+	// main input pipe:
+	chunks := make(chan []int)
+
+	// construct main output pipe... whee!
+	output := getTokenPipe(getRlePipe(getQuantizePipe(chunks)))
 
 	// Start pushing random data into the pipeline in the background
 	go func() {
@@ -123,9 +231,20 @@ func main () {
 		close(chunks)
 	}()
 
-	// Pull quantized booleans from the pipeline's output
+	// Print logical tokens from the pipeline's output
 	for val := range output {
-		fmt.Printf("%d ", val)
+		out := ""
+		switch val {
+		case dit: out = "dit "
+		case dah: out = "dah "
+		case endLetter: out = "endLetter "
+		case endWord: out = "endWord "
+		case pause: out = "pause "
+		case noOp: out = ""
+		default: out = "ERROR "
+		}
+		fmt.Printf("%s ", out)
 	}
+	close(output)
 }
 
