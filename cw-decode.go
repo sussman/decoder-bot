@@ -29,37 +29,42 @@ func rms(audiovals []int) int {
 }
 
 
-// Reads audiosample chunks from 'chunks' channel, pushes simple RMS
+// Read audiosample chunks from 'chunks' channel, and push simple RMS
 // amplitudes into the 'amplitudes' channel.
 func amplituder(chunks chan []int, amplitudes chan int) {
-	for {
-		chunk := <-chunks
+	for chunk := range chunks {
 		amplitudes <- rms(chunk)
 	}
+	close(amplitudes)
 }
 
 
-// Reads amplitudes from 'amplitudes' channel, and pushes quantized
+// Read amplitudes from 'amplitudes' channel, and push quantized
 // on/off values to 'quants' channel.
 func quantizer(amplitudes chan int, quants chan bool) {
-	for {
+	var group [100]int
+	seen := 0
+	max := 0
+	min := 0
+	for amp := range amplitudes {
 		// Suck 100 amplitudes at a time from input channel,
-		// figure out 'middle' amplitude in the group, and use
-		// this value to quantize each amplitude.
-		var group [100]int
-		max := 0
-		min := 0
-		for i := 0; i < 100; i++ {
-			amp := <-amplitudes
-			group[i] = amp
-			if amp > max { max = amp }
-			if amp < min { min = amp }				
-		}
-		middle := (max - min) / 2
-		for i := 0; i < 100; i++ {
-			quants <- (group[i] >= middle)
+		// figure out 'middle' amplitude for the group, and
+		// use that value to quantize each amplitude.
+		group[seen] = amp
+		seen += 1
+		if amp > max { max = amp }
+		if amp < min { min = amp }				
+		if seen == 100 {
+			middle := (max - min) / 2
+			for i := 0; i < 100; i++ {
+				quants <- (group[i] >= middle)
+			}
+			max = 0
+			min = 0
+			seen = 0
 		}
 	}
+	close(quants)
 }
 
 
@@ -90,11 +95,13 @@ func main () {
 			for j := 0; j < 10; j++ { chunk[j] = rand.Int() }
 			chunks <- chunk
 		}
+		close(chunks)
 	}()
 
 	// Pull quantized booleans from the pipeline's output
-	for {
-		fmt.Printf("%d ", <-quants)
+	for quant := range quants {
+		if quant { fmt.Printf("X ") 
+		} else { fmt.Printf("O ") }
 	}
 }
 
