@@ -24,8 +24,8 @@ func rms(audiovals []int) int {
 		squaresum = squaresum + (v*v)
 	}
 	mean := sum / len(audiovals)
-	mean_of_squares := squaresum / len(audiovals)
-	return int(math.Sqrt(float64(mean_of_squares - (mean * mean))))
+	meanOfSquares := squaresum / len(audiovals)
+	return int(math.Sqrt(float64(meanOfSquares - (mean * mean))))
 }
 
 
@@ -71,7 +71,7 @@ func quantizer(amplitudes chan int, quants chan bool) {
 // Main stage 1 pipeline: reads audiochunks from input channel;
 // returns a boolean channel to which it pushes quantized on/off
 // values.
-func get_quantize_pipe(audiochunks chan []int) chan bool {
+func getQuantizePipe(audiochunks chan []int) chan bool {
 	amplitudes := make(chan int)
 	quants := make(chan bool)
 	go amplituder(audiochunks, amplitudes)
@@ -80,15 +80,40 @@ func get_quantize_pipe(audiochunks chan []int) chan bool {
 }
 
 
+// ------- Stage 2:  Run-length encode the on/off states. ----------
+// 
+// That is, if the input stream is 0001100111100, we want to output
+// the list [3, 2, 2, 4, 2], which can be seen as the "rhythm" of the
+// coded message.
+
+func getRlePipe(quants chan bool) chan int {
+	lengths := make(chan int)
+	go func() {
+		currentState := false
+		tally := 0
+		for quant := range quants {
+			if quant == currentState { 
+				tally += 1 
+			} else {
+				lengths <- tally
+				currentState = quant
+				tally = 1
+			}
+		}
+		close(lengths)
+	}()
+	return lengths
+}
+
 
 
 // ------ Put all the pipes together. --------------
 
 func main () {
-	chunks := make(chan []int)
-	quants := get_quantize_pipe(chunks)
+	chunks := make(chan []int)  // main input pipe
+	output := getRlePipe(getQuantizePipe(chunks))  // main output pipe
 
-	// Push a crapload of random data into the pipeline
+	// Start pushing random data into the pipeline in the background
 	go func() {
 		for i :=0 ; i < 5000; i++ {
 			chunk := make([]int, 10)
@@ -99,9 +124,8 @@ func main () {
 	}()
 
 	// Pull quantized booleans from the pipeline's output
-	for quant := range quants {
-		if quant { fmt.Printf("X ") 
-		} else { fmt.Printf("O ") }
+	for val := range output {
+		fmt.Printf("%d ", val)
 	}
 }
 
