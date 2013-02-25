@@ -11,7 +11,7 @@ package main
 import (
 	"fmt"
 	"math"
-	"rand"
+	"math/rand"
 	"sort"
 )
 
@@ -138,8 +138,8 @@ func getRlePipe(quants chan bool) chan int {
 // of durations. In theory we could simply pick the smallest, but by
 // going with the 25th percentile, the hope is to avoid picking the
 // ridiculously small sample that results from a quantization error.
-func calculateUnitDuration(group sort.IntArray) int {
-	group.Sort()
+func calculateUnitDuration(group []int) int {
+	sort.Ints(group)
 	// fmt.Printf("(%d) ", group)
 	return group[(len(group) / 4)]
 }
