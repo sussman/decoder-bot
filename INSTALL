@@ -1,0 +1,20 @@
+
+What I had to do on OS X 10.9:
+
+- Install the latest Go binary tree into /usr/local/go 
+  (over from https://code.google.com/p/go/downloads/detail?name=go1.2rc3.darwin-amd64-osx10.8.tar.gz&can=2&q=)
+
+
+- Portaudio:
+
+  - checked out latest svn code:  svn co https://subversion.assembla.com/svn/portaudio/portaudio/trunk/
+
+  - hand-edited configure.in to look for 10.8 and 10.9 SDK.
+
+  - ./configure && make;  sudo make install
+
+- Set $GOPATH to a new directory ~/gocode
+
+- go get code.google.com/p/portaudio-go/portaudio
+
+
