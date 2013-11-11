@@ -9,9 +9,12 @@
 package main
 
 import (
+	// "code.google.com/p/portaudio-go/portaudio"
 	"fmt"
 	"math"
 	"math/rand"
+	"os"
+	"os/signal"
 	"sort"
 )
 
@@ -214,12 +217,49 @@ func getTokenPipe(durations chan int) chan token {
 
 // ------ Put all the pipes together. --------------
 
+func chk(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func main () {
+	// Die on Control-C
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, os.Kill)
+
 	// main input pipe:
 	chunks := make(chan []int)
 
 	// construct main output pipe... whee!
 	output := getTokenPipe(getRlePipe(getQuantizePipe(chunks)))
+
+/*	portaudio.Initialize()
+	defer portaudio.Terminate()
+
+	in := make([]int32, 64)
+	stream, err := portaudio.OpenDefaultStream(1, 0, 44100, len(in), in)
+	chk(err)
+	defer stream.Close()
+	nSamples := 0
+
+	go func() {
+		chk(stream.Start())
+		for {
+			chk(stream.Read())
+
+			// chk(binary.Write(f, binary.BigEndian, in))
+			
+			nSamples += len(in)
+			select {
+			case <-sig:
+				return
+			default:
+			}
+		}
+		chk(stream.Stop())
+	}
+*/
 
 	// Start pushing random data into the pipeline in the background
 	go func() {
@@ -231,19 +271,20 @@ func main () {
 		close(chunks)
 	}()
 
+
 	// Print logical tokens from the pipeline's output
 	for val := range output {
 		out := ""
 		switch val {
-		case dit: out = "dit "
-		case dah: out = "dah "
-		case endLetter: out = "endLetter "
-		case endWord: out = "endWord "
+		case dit: out = ". "
+		case dah: out = "_ "
+		case endLetter: out = "  "
+		case endWord: out = ": "
 		case pause: out = "pause "
 		case noOp: out = ""
 		default: out = "ERROR "
 		}
-		fmt.Printf("%s ", out)
+		fmt.Printf("%s", out)
 	}
 	close(output)
 }
