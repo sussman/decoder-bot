@@ -136,8 +136,9 @@ func getRlePipe(quants chan bool) chan int32 {
 //
 
 type byInt32 []int32
-func (b byInt32) Len() int { return len(b) }
-func (b byInt32) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
+
+func (b byInt32) Len() int           { return len(b) }
+func (b byInt32) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
 func (b byInt32) Less(i, j int) bool { return b[i] < b[j] }
 
 // Take a list of on/off duration events, sort them, return the 25th
@@ -244,15 +245,15 @@ func main() {
 	chk(err)
 	defer stream.Close()
 	nSamples := 0
-	
+
 	go func() {
 		chk(stream.Start())
 		for {
 			chk(stream.Read())
-			
+
 			// chk(binary.Write(f, binary.BigEndian, in))
 			chunks <- samplechunk
-		
+
 			nSamples += len(samplechunk)
 			select {
 			case <-sig:
@@ -262,7 +263,6 @@ func main() {
 		}
 		chk(stream.Stop())
 	}()
-	
 
 	// Print logical tokens from the pipeline's output
 	for val := range output {
